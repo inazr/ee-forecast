@@ -5,6 +5,7 @@ from datetime import timedelta
 from ftplib import FTP
 from pathlib import Path
 import pandas as pd  # iloc[Zeilen, Spalten]
+pd.options.mode.chained_assignment = None  # default='warn'
 import psycopg2
 from lxml import etree
 from lxml.etree import XMLParser
@@ -19,7 +20,8 @@ def project_path():
     project_folder = Path(os.path.dirname(os.path.abspath(__file__))).parent.parent
     project_data = os.path.join(project_folder, 'data')
 
-    return os.path.abspath(project_data)
+    return os.path.abspath(project_data), os.path.abspath(project_folder)
+
 
 dl_path, project_path = project_path()
 
@@ -31,8 +33,10 @@ def get_filename(i):
     now = datetime.today() + timedelta(hours=-i)
     filename_kmz = 'MOSMIX_S_' + now.strftime('%Y') + now.strftime('%m') + now.strftime('%d') + now.strftime(
         '%H') + '_240.kmz'
+    current_timestamp = now.strftime('%Y') + "-" + now.strftime('%m') + "-" + now.strftime('%d') + " " + now.strftime(
+        '%H')+ ":00:00"
 
-    return filename_kmz, now
+    return filename_kmz, current_timestamp, now
 
 
 def check_filename_exist(filename_kmz):
@@ -139,19 +143,14 @@ def extract_weather_data(filename_kml, s_StationIDs, now):
     df_ForeCastData_Predictor.index = df_ForeCastTime_Predictor['ForeCastTime']
     df_ForeCastData_Predictor.index = pd.to_datetime(df_ForeCastData_Predictor.index)
 
-    df_ForeCastData_Predictor.to_csv(dl_path + '/' + 'prediction_data.csv')
-
-    try:
-        df_ForeCastData_Predictor.to_csv(dl_path + '/' + filename_kml[:-4] + '.csv')
-    except:
-        pass
-
+    df_ForeCastData_Predictor.to_csv(dl_path + '/' + filename_kml[:-4] + '.csv')
 
 def load_data_to_db():
     with dwh_conn.cursor() as cur:
         cur.execute("COPY stg_dwd.mosmix FROM '" + dl_path + "/temp_mosmix.csv' DELIMITER ',' NULL AS '-';")
         dwh_conn.commit()
 
+        cur.execute("TRUNCATE TABLE stg_dwd.geo_coordinates;")
         cur.execute("COPY stg_dwd.geo_coordinates FROM '" + dl_path + "/geo_coordinates.csv' DELIMITER ',' NULL AS '-';")
         dwh_conn.commit()
 
@@ -160,21 +159,41 @@ def clean_up(filename_kml):
     os.remove(dl_path + '/' + 'temp_mosmix.csv')
     os.remove(dl_path + '/' + 'geo_coordinates.csv')
     os.remove(dl_path + '/' + filename_kml)
+    os.remove(dl_path + '/' + filename_kmz)
 
-    filename_kmz, _ = get_filename(10)
 
-    try:
-        os.remove(dl_path + '/' + filename_kmz)
-    except:
-        pass
+def check_if_time_of_prediction_on_server(current_timestamp):
+    time = pd.read_sql(
+        "select time_of_prediction from stg_dwd.mosmix where time_of_prediction = '" + current_timestamp + "';",
+        con=dwh_conn, parse_dates=True)
+
+    if time.empty:
+        check = True
+    else:
+        check = False
+
+    return check
 
 
 if __name__ == "__main__":
-    filename_kmz, now = get_filename(5)
-    check_filename_exist(filename_kmz)
-    unzip_file(filename_kmz)
-    filename_kml = filename_kmz[:-1] + 'l'
-    s_StationIDs = extract_geo_data(filename_kml)
-    extract_weather_data(filename_kml, s_StationIDs, now)
-    load_data_to_db()
-    clean_up(filename_kml)
+
+    for i in range(4, 9):
+        filename_kmz, current_timestamp, now = get_filename(i)
+
+        check = check_if_time_of_prediction_on_server(current_timestamp)
+        if check:
+            check_filename_exist(filename_kmz)
+            unzip_file(filename_kmz)
+            filename_kml = filename_kmz[:-1] + 'l'
+            s_StationIDs = extract_geo_data(filename_kml)
+            extract_weather_data(filename_kml, s_StationIDs, now)
+            load_data_to_db()
+            clean_up(filename_kml)
+
+        else:
+            print("skipping...")
+
+
+
+
+
