@@ -145,6 +145,7 @@ def extract_weather_data(filename_kml, s_StationIDs, now):
 
     df_ForeCastData_Predictor.to_csv(dl_path + '/' + filename_kml[:-4] + '.csv')
 
+
 def load_data_to_db():
     with dwh_conn.cursor() as cur:
         cur.execute("COPY stg_dwd.mosmix FROM '" + dl_path + "/temp_mosmix.csv' DELIMITER ',' NULL AS '-';")
