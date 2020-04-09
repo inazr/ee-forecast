@@ -14,8 +14,8 @@ pd.set_option('display.width', 2000)
 
 
 def project_path():
-    project_folder = Path(os.path.dirname(os.path.abspath(__file__))).parent
-    project_data = os.path.join(project_folder, '..', 'data', 'ml')
+    project_folder = Path(os.path.dirname(os.path.abspath(__file__))).parent.parent
+    project_data = os.path.join(project_folder, 'data', 'ml')
 
     return os.path.abspath(project_data)
 
@@ -26,8 +26,6 @@ def get_trainingsdata():
     df_trainingsdata = pd.read_csv(project_data + '\\trainingsdata.csv', parse_dates=True, index_col=0,
                                    header=0)  # read csv
   
-
-    
     df_trainingsdata = df_trainingsdata.drop('DE_50HzT', axis=1)
     df_trainingsdata = df_trainingsdata.drop('DE_Amprion', axis=1)
     # df_trainingsdata = df_trainingsdata.drop('DE_TenneT_GER', axis=1)
@@ -44,6 +42,8 @@ def get_trainingsdata():
 
 def train_test_split(df_trainingsdata):
     df_trainingsdata = df_trainingsdata.sample(frac=1)
+
+    df_trainingsdata = df_trainingsdata.reindex(sorted(df_trainingsdata.columns), axis=1)
     
     split = 0.8
     split = int(split * len(df_trainingsdata))
@@ -51,16 +51,14 @@ def train_test_split(df_trainingsdata):
     train_targets = df_trainingsdata.iloc[:split, 0]
     test_targets = df_trainingsdata.iloc[split:, 0]
     
-    df_trainingsdata = df_trainingsdata.iloc[:, 1:]
-    df_trainingsdata = df_trainingsdata.reindex(sorted(df_trainingsdata.columns), axis=1)
     
-    train_data = df_trainingsdata.iloc[:split, 0:]
-    test_data = df_trainingsdata.iloc[split:, 0:]
+    train_data = df_trainingsdata.iloc[:split, 1:]
+    test_data = df_trainingsdata.iloc[split:, 1:]
     
     mean = train_data.mean()
-    mean.to_csv(project_data + 'mean_TEN.csv')
+    mean.to_csv(project_data + '\\mean_TEN.csv')
     std = train_data.std()
-    std.to_csv(project_data + 'std_TEN.csv')
+    std.to_csv(project_data + '\\std_TEN.csv')
     
     train_data = (train_data - mean) / std
     test_data = (test_data - mean) / std
@@ -68,32 +66,28 @@ def train_test_split(df_trainingsdata):
     train_data = train_data.fillna(0)
     test_data = test_data.fillna(0)
     
-    print(np.any(np.isnan(train_data)))
-    print(np.any(np.isnan(train_targets)))
-    print(np.any(np.isnan(test_data)))
-    print(np.any(np.isnan(test_targets)))
-    
     return train_data, train_targets, test_data, test_targets
 
 
 def build_model_dense(train_data):
-    sgd = keras.optimizers.SGD(lr=0.00025, momentum=0.95, nesterov=False, clipnorm=0.75, decay=1e-6)
+    sgd = keras.optimizers.SGD(lr=0.0001, momentum=0.95, nesterov=False, clipnorm=2, decay=1e-6)
     model = models.Sequential()
+    neurons = 806
     
     # Input Layer
-    model.add(LeakyReLU(alpha=0.01))
-    model.add(
-        layers.Dense(train_data.shape[1], kernel_initializer='glorot_uniform', input_shape=(train_data.shape[1],)))
+    
+    model.add(layers.Dense(train_data.shape[1], kernel_initializer='glorot_uniform', input_shape=(train_data.shape[1],)))
     
     # Hidden Stuff
     model.add(LeakyReLU(alpha=0.01))
-    model.add(layers.Dense(806, kernel_initializer='he_uniform', input_shape=(train_data.shape[1],)))
+    model.add(layers.Dense(neurons, kernel_initializer='he_uniform', input_shape=(train_data.shape[1],)))
     
     for i in range(50):
-        # keras.layers.Dropout(0.1, noise_shape=(806,), seed=42)
+        keras.layers.Dropout(0.25, noise_shape=(neurons,), seed=42)
         model.add(LeakyReLU(alpha=0.05))
-        model.add(layers.Dense(806, kernel_initializer='he_uniform', input_shape=(806,)))
-    
+        model.add(layers.Dense(neurons, kernel_initializer='he_uniform', input_shape=(neurons,)))
+
+
     # Output Layer
     model.add(layers.Dense(1, kernel_initializer='he_uniform', activation='linear'))
     
@@ -103,13 +97,13 @@ def build_model_dense(train_data):
 
 
 def run_keras(train_data, train_targets, test_data, test_targets):
-    num_epochs = 400
+    num_epochs = 200
     model = build_model_dense(train_data)
     
     history = model.fit(train_data, train_targets, epochs=num_epochs, batch_size=128, verbose=1,
-                        validation_data=(test_data, test_targets))
+                        validation_data=(test_data.values, test_targets.values))
     
-    model.save('keras_TEN.h5')
+    model.save(project_data + '\\keras_TEN.h5')
     
     plt.plot(history.history['loss'])
     plt.plot(history.history['val_loss'])

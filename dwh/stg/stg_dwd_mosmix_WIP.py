@@ -98,7 +98,9 @@ def extract_weather_data(filename_kml, s_StationIDs, now):
     '''
     df_ForeCastTime_Predictor = df_ForeCastTime
 
-    df_ForeCastTime['PredictionDate'] = pd.to_datetime(filename_kml[9:13] + '-' + filename_kml[13:15] + '-' + filename_kml[15:17] + ' ' + filename_kml[17:19] + ':00:00', format='%Y-%m-%d %H:%M:%S')
+    df_ForeCastTime['PredictionDate'] = pd.to_datetime(
+        now.strftime('%Y') + '-' + now.strftime('%m') + '-' + now.strftime('%d') + ' ' + now.strftime(
+            '%H'), format='%Y-%m-%d %H:%M:%S')
 
     df_ForeCastTime = df_ForeCastTime.iloc[:1, :]
 
@@ -138,41 +140,40 @@ def extract_weather_data(filename_kml, s_StationIDs, now):
 
     df_ForeCastData_Predictor = df_ForeCastData_Predictor.T
     df_ForeCastData_Predictor.columns = df_ForeCastData_Predictor.iloc[0]
-
+   
     df_ForeCastData_Predictor = df_ForeCastData_Predictor[1:]
 
     df_ForeCastData_Predictor['ForeCastTime'] = df_ForeCastTime_Predictor['ForeCastTime']
 
-    df_ForeCastData_Predictor = df_ForeCastData_Predictor.melt(id_vars='ForeCastTime', var_name='StationID',
-                                                               value_name='FF')
+    df_ForeCastData_Predictor = df_ForeCastData_Predictor.melt(id_vars='ForeCastTime', var_name='StationID', value_name='FF')
 
-    df_ForeCastData_Predictor['Time_of_Prediction'] = str(
-        filename_kml[9:13] + '-' + filename_kml[13:15] + '-' + filename_kml[15:17] + ' ' + filename_kml[
-                                                                                           17:19] + ':00:00')
+    df_ForeCastData_Predictor['Time_of_Prediction'] = str(filename_kml[9:13] + '-' + filename_kml[13:15] + '-' + filename_kml[15:17] + ' ' + filename_kml[17:19] + ':00:00')
 
     df_ForeCastData_Predictor = df_ForeCastData_Predictor[['ForeCastTime', 'Time_of_Prediction', 'StationID', 'FF']]
 
     df_ForeCastData_Predictor.to_csv(dl_path + '/' + 'ForeCastData.csv', header=False, index=False)
 
+    print(df_ForeCastData_Predictor)
+
 
 def load_data_to_db():
     with dwh_conn.cursor() as cur:
-        cur.execute("COPY stg_dwd.mosmix FROM '" + dl_path + "/temp_mosmix.csv' DELIMITER ',' NULL AS '-';")
-        dwh_conn.commit()
+        # cur.execute("COPY stg_dwd.mosmix FROM '" + dl_path + "/temp_mosmix.csv' DELIMITER ',' NULL AS '-';")
+        # dwh_conn.commit()
 
-        cur.execute("TRUNCATE TABLE stg_dwd.geo_coordinates;")
-        cur.execute("COPY stg_dwd.geo_coordinates FROM '" + dl_path + "/geo_coordinates.csv' DELIMITER ',' NULL AS '-';")
-        dwh_conn.commit()
+        # cur.execute("TRUNCATE TABLE stg_dwd.geo_coordinates;")
+        # cur.execute("COPY stg_dwd.geo_coordinates FROM '" + dl_path + "/geo_coordinates.csv' DELIMITER ',' NULL AS '-';")
+        # dwh_conn.commit()
 
         cur.execute("COPY stg_dwd.forecastdata FROM '" + dl_path + "/ForeCastData.csv' DELIMITER ',' NULL AS '-';")
         dwh_conn.commit()
+
 
 def clean_up(filename_kml):
     os.remove(dl_path + '/' + 'temp_mosmix.csv')
     os.remove(dl_path + '/' + 'geo_coordinates.csv')
     os.remove(dl_path + '/' + filename_kml)
     os.remove(dl_path + '/' + filename_kmz)
-    os.remove(dl_path + '/' + 'ForeCastData.csv')
 
 
 def check_if_time_of_prediction_on_server(current_timestamp):
@@ -190,21 +191,15 @@ def check_if_time_of_prediction_on_server(current_timestamp):
 
 if __name__ == "__main__":
 
-    for i in range(3, 9):
-        filename_kmz, current_timestamp, now = get_filename(i)
 
-        check = check_if_time_of_prediction_on_server(current_timestamp)
-        if check:
-            check_filename_exist(filename_kmz)
-            unzip_file(filename_kmz)
-            filename_kml = filename_kmz[:-1] + 'l'
-            s_StationIDs = extract_geo_data(filename_kml)
-            extract_weather_data(filename_kml, s_StationIDs, now)
-            load_data_to_db()
-            clean_up(filename_kml)
-
-        else:
-            print("skipping...")
+        filename_kmz, current_timestamp, now = get_filename(13)
+        #check_filename_exist(filename_kmz)
+        #unzip_file(filename_kmz)
+        filename_kml = filename_kmz[:-1] + 'l'
+        s_StationIDs = extract_geo_data(filename_kml)
+        extract_weather_data(filename_kml, s_StationIDs, now)
+        load_data_to_db()
+        #clean_up(filename_kml)
 
 
 
