@@ -26,8 +26,7 @@ def query_mosmix_db():
     Return valid stationids
     '''
     
-    df_mosmix_raw_ff = pd.read_sql(
-            "select forecast_timestamp , stationid, ff from stg_dwd.mosmix right join stg_dwd.geo_coordinates using (stationid) where time_of_prediction >= '2018-01-01';",
+    df_mosmix_raw_ff = pd.read_sql("select forecast_timestamp, stationid, ff from stg_dwd.mosmix right join ods_dwd.geo_coordinates_ger using (stationid)",
             con=dwh_conn, parse_dates=True)
     df_mosmix_raw_ff['stationid'] = 'ff_' + df_mosmix_raw_ff['stationid'].astype(str)
     df_mosmix_raw_ff['forecast_timestamp'] = pd.to_datetime(df_mosmix_raw_ff['forecast_timestamp'])
@@ -67,5 +66,5 @@ def query_entsoe_dagfws():
 
 if __name__ == "__main__":
     query_mosmix_db()
-    query_entsoe_agppt()
-    query_entsoe_dagfws()
+    #query_entsoe_agppt()
+    #query_entsoe_dagfws()

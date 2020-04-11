@@ -3,7 +3,7 @@ from keras import layers
 from keras.layers.advanced_activations import LeakyReLU
 import keras
 import matplotlib.pyplot as plt
-import numpy as np
+import tensorflow as tf
 from pathlib import Path
 import pandas as pd  # iloc[Zeilen, Spalten]
 import os
@@ -39,7 +39,6 @@ def get_trainingsdata():
     
     return df_trainingsdata
 
-
 def train_test_split(df_trainingsdata):
     df_trainingsdata = df_trainingsdata.sample(frac=1)
 
@@ -70,38 +69,47 @@ def train_test_split(df_trainingsdata):
 
 
 def build_model_dense(train_data):
-    sgd = keras.optimizers.SGD(lr=0.0001, momentum=0.95, nesterov=False, clipnorm=2, decay=1e-6)
+    sgd = keras.optimizers.SGD(lr=0.00015, momentum=0.95, nesterov=False, clipnorm=0.99, decay=1e-6)
     model = models.Sequential()
-    neurons = 806
+    neurons = 1500
+    
     
     # Input Layer
     
-    model.add(layers.Dense(train_data.shape[1], kernel_initializer='glorot_uniform', input_shape=(train_data.shape[1],)))
-    
-    # Hidden Stuff
-    model.add(LeakyReLU(alpha=0.01))
     model.add(layers.Dense(neurons, kernel_initializer='he_uniform', input_shape=(train_data.shape[1],)))
     
     for i in range(50):
-        keras.layers.Dropout(0.25, noise_shape=(neurons,), seed=42)
-        model.add(LeakyReLU(alpha=0.05))
+        #keras.layers.Dropout(0.25, noise_shape=(neurons,), seed=42)
+        model.add(LeakyReLU(alpha=0.2))
         model.add(layers.Dense(neurons, kernel_initializer='he_uniform', input_shape=(neurons,)))
 
 
     # Output Layer
     model.add(layers.Dense(1, kernel_initializer='he_uniform', activation='linear'))
     
-    model.compile(optimizer=sgd, loss='mse', metrics=['mae'])
+    '''
+    Testen:
+    loss=get_huber_loss_fn(delta=0.1)
+    loss='hinge' <- does not work: investigate!
+    
+    loss=tf.losses.Huber(delta=1.5)
+    15232/15232 [==============================] - 9s 587us/step - loss: 69.1568 - mae: 46.8470 - mse: 5909.2832 - val_loss: 154.5919 - val_mae: 103.8075 - val_mse: 25396.6445
+    loss=tf.losses.Huber(delta=0.9)
+    15232/15232 [==============================] - 9s 570us/step - loss: 34.4352 - mae: 38.7073 - mse: 4616.7876 - val_loss: 87.2887 - val_mae: 97.4355 - val_mse: 19848.4336
+    
+    '''
+    model.compile(optimizer=sgd, loss=tf.losses.Huber(delta=0.9), metrics=['mae', 'mse'])
     
     return model
 
 
 def run_keras(train_data, train_targets, test_data, test_targets):
-    num_epochs = 200
+    num_epochs = 400
     model = build_model_dense(train_data)
     
-    history = model.fit(train_data, train_targets, epochs=num_epochs, batch_size=128, verbose=1,
-                        validation_data=(test_data.values, test_targets.values))
+    
+    history = model.fit(train_data, train_targets, epochs=num_epochs, batch_size=256, verbose=1,
+                        validation_data=(test_data, test_targets))
     
     model.save(project_data + '\\keras_TEN.h5')
     

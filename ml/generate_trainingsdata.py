@@ -19,6 +19,8 @@ def generate_training_data():
     df_entsoe_agppt = pd.read_csv(project_data + '/df_entsoe_agppt.csv', parse_dates=True)
     df_entsoe_agppt = df_entsoe_agppt.set_index(['datetime'])
     df_entsoe_agppt.index.name = 'timestamp'
+    
+    #print(df_entsoe_agppt)
 
     #df_entsoe_dagfws = pd.read_csv(project_data + '/df_entsoe_dagfws.csv', parse_dates=True)
     #df_entsoe_dagfws = df_entsoe_dagfws.set_index(['datetime'])
@@ -32,7 +34,8 @@ def generate_training_data():
     df_mosmix = df_mosmix.set_index(['forecast_timestamp'])
     df_mosmix.index.name = 'timestamp'
 
-    #df_trainingsdata = pd.concat([df_entsoe_agppt, df_entsoe_dagfws], axis=1, sort=False)
+    #print(df_mosmix)
+
     df_trainingsdata = df_entsoe_agppt.join(other=df_mosmix)
 
     del df_entsoe_agppt
@@ -47,11 +50,11 @@ def generate_training_data():
     
     df_trainingsdata = df_trainingsdata.interpolate(method='linear', axis=0, limit=7, limit_area='inside')
 
-    df_trainingsdata = df_trainingsdata.dropna(thresh=3224, axis=0)
+    df_trainingsdata = df_trainingsdata.dropna(thresh=3000, axis=0)
     df_trainingsdata = df_trainingsdata.round(2)
 
     print(df_trainingsdata)
-
+    
     df_trainingsdata.to_csv(project_data + '/trainingsdata.csv')
 
 
