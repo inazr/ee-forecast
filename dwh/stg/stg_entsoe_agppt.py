@@ -12,7 +12,7 @@ cnopts.hostkeys = None
 
 def project_path():
     project_folder = Path(os.path.dirname(os.path.abspath(__file__))).parent.parent
-    project_data = os.path.join(project_folder, 'data')
+    project_data = os.path.join(project_folder, 'data', 'agppt')
 
     return os.path.abspath(project_data), os.path.abspath(project_folder)
 
@@ -55,12 +55,16 @@ def load_data_to_db(filename):
 
 
 def month_year():
-    if datetime.now().month == 1:
-        current_month = datetime.now().month + 11
-        current_year = datetime.now().year - 1
+    if datetime.now().day < 3:
+        if datetime.now().month == 1:
+            current_month = datetime.now().month + 11
+            current_year = datetime.now().year - 1
+        else:
+            current_month = datetime.now().month -1
+            current_year = datetime.now().year
     else:
-        current_month = datetime.now().month -1
-        current_year = datetime.now().year
+            current_month = datetime.now().month
+            current_year = datetime.now().year
 
     return current_month, current_year
 

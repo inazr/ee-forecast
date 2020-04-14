@@ -21,6 +21,15 @@ def project_path():
 
 project_data = project_path()
 
+# Globals
+
+UNB = ['_TEN',
+       '_AMP',
+       '_TBW',
+       '_50HzT']
+
+
+
 
 def get_trainingsdata():
     df_trainingsdata = pd.read_csv(project_data + '\\trainingsdata.csv', parse_dates=True, index_col=0,
@@ -28,8 +37,8 @@ def get_trainingsdata():
   
     df_trainingsdata = df_trainingsdata.drop('DE_50HzT', axis=1)
     df_trainingsdata = df_trainingsdata.drop('DE_Amprion', axis=1)
-    # df_trainingsdata = df_trainingsdata.drop('DE_TenneT_GER', axis=1)
-    df_trainingsdata = df_trainingsdata.drop('DE_TransnetBW', axis=1)
+    df_trainingsdata = df_trainingsdata.drop('DE_TenneT_GER', axis=1)
+    #df_trainingsdata = df_trainingsdata.drop('DE_TransnetBW', axis=1)
     
     # currently not part of the trainingsdata
     #df_trainingsdata = df_trainingsdata.drop('pred_DE_50HzT', axis=1)
@@ -39,12 +48,13 @@ def get_trainingsdata():
     
     return df_trainingsdata
 
+
 def train_test_split(df_trainingsdata):
     df_trainingsdata = df_trainingsdata.sample(frac=1)
 
     df_trainingsdata = df_trainingsdata.reindex(sorted(df_trainingsdata.columns), axis=1)
     
-    split = 0.8
+    split = 0.999
     split = int(split * len(df_trainingsdata))
     
     train_targets = df_trainingsdata.iloc[:split, 0]
@@ -55,9 +65,9 @@ def train_test_split(df_trainingsdata):
     test_data = df_trainingsdata.iloc[split:, 1:]
     
     mean = train_data.mean()
-    mean.to_csv(project_data + '\\mean_TEN.csv')
+    mean.to_csv(project_data + '\\mean_TBW.csv')
     std = train_data.std()
-    std.to_csv(project_data + '\\std_TEN.csv')
+    std.to_csv(project_data + '\\std_TBW.csv')
     
     train_data = (train_data - mean) / std
     test_data = (test_data - mean) / std
@@ -91,14 +101,16 @@ def build_model_dense(train_data):
     Testen:
     loss=get_huber_loss_fn(delta=0.1)
     loss='hinge' <- does not work: investigate!
-    
+    tf.losses.Huber(delta=0.9)
     loss=tf.losses.Huber(delta=1.5)
     15232/15232 [==============================] - 9s 587us/step - loss: 69.1568 - mae: 46.8470 - mse: 5909.2832 - val_loss: 154.5919 - val_mae: 103.8075 - val_mse: 25396.6445
     loss=tf.losses.Huber(delta=0.9)
     15232/15232 [==============================] - 9s 570us/step - loss: 34.4352 - mae: 38.7073 - mse: 4616.7876 - val_loss: 87.2887 - val_mae: 97.4355 - val_mse: 19848.4336
     
+    custom loss function does not work ;-/ to load model
+    
     '''
-    model.compile(optimizer=sgd, loss=tf.losses.Huber(delta=0.9), metrics=['mae', 'mse'])
+    model.compile(optimizer=sgd, loss='mae', metrics=['mse'])
     
     return model
 
@@ -111,7 +123,7 @@ def run_keras(train_data, train_targets, test_data, test_targets):
     history = model.fit(train_data, train_targets, epochs=num_epochs, batch_size=256, verbose=1,
                         validation_data=(test_data, test_targets))
     
-    model.save(project_data + '\\keras_TEN.h5')
+    model.save(project_data + '\\keras_TBW.h5')
     
     plt.plot(history.history['loss'])
     plt.plot(history.history['val_loss'])
@@ -123,6 +135,8 @@ def run_keras(train_data, train_targets, test_data, test_targets):
 
 
 if __name__ == "__main__":
+
+    
     df_trainingsdata = get_trainingsdata()
     train_data, train_targets, test_data, test_targets = train_test_split(df_trainingsdata)
     run_keras(train_data, train_targets, test_data, test_targets)

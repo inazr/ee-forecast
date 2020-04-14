@@ -167,7 +167,7 @@ def load_data_to_db():
         cur.execute("COPY stg_dwd.forecastdata FROM '" + dl_path + "/ForeCastData.csv' DELIMITER ',' NULL AS '-';")
         dwh_conn.commit()
 
-def clean_up(filename_kml):
+def clean_up(filename_kml, filename_kmz):
     os.remove(dl_path + '/' + 'temp_mosmix.csv')
     os.remove(dl_path + '/' + 'geo_coordinates.csv')
     os.remove(dl_path + '/' + filename_kml)
@@ -190,7 +190,7 @@ def check_if_time_of_prediction_on_server(current_timestamp):
 
 if __name__ == "__main__":
 
-    for i in range(3, 9):
+    for i in range(3, 12):
         filename_kmz, current_timestamp, now = get_filename(i)
 
         check = check_if_time_of_prediction_on_server(current_timestamp)
@@ -201,7 +201,7 @@ if __name__ == "__main__":
             s_StationIDs = extract_geo_data(filename_kml)
             extract_weather_data(filename_kml, s_StationIDs, now)
             load_data_to_db()
-            clean_up(filename_kml)
+            clean_up(filename_kml, filename_kmz)
 
         else:
             print("skipping...")
