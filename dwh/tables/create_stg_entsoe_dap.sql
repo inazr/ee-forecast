@@ -1,4 +1,4 @@
-CREATE TABLE stg_entsoe.agppt (
+CREATE TABLE stg_entsoe.dap (
 	"year" int4 NULL,
 	"month" int4 NULL,
 	"day" int4 NULL,
@@ -8,8 +8,7 @@ CREATE TABLE stg_entsoe.agppt (
 	areatypecode varchar NULL,
 	areaname varchar NULL,
 	mapcode varchar NULL,
-	productiontype varchar NULL,
-	actualgenerationoutput float8 NULL,
-	actualconsumption float8 NULL,
+	price float8 NULL,
+	currency varchar NULL,
 	updatetime timestamp NULL
 );
