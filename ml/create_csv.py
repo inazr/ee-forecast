@@ -66,5 +66,5 @@ def query_entsoe_dagfws():
 
 if __name__ == "__main__":
     query_mosmix_db()
-    #query_entsoe_agppt()
-    #query_entsoe_dagfws()
+    query_entsoe_agppt()
+    query_entsoe_dagfws()

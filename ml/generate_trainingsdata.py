@@ -34,8 +34,6 @@ def generate_training_data():
     df_mosmix = df_mosmix.set_index(['forecast_timestamp'])
     df_mosmix.index.name = 'timestamp'
 
-    #print(df_mosmix)
-
     df_trainingsdata = df_entsoe_agppt.join(other=df_mosmix)
 
     del df_entsoe_agppt
@@ -55,7 +53,7 @@ def generate_training_data():
 
     print(df_trainingsdata)
     
-    df_trainingsdata.to_csv(project_data + '/trainingsdata.csv')
+    df_trainingsdata.to_csv(project_data + '/trainingsdata_pow.csv')
 
 
 if __name__ == "__main__":

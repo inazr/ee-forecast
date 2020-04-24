@@ -40,7 +40,7 @@ def get_statistics(project_data, UNB):
 
 
 def get_prediction_data(project_data):
-    df_prediction_data = pd.read_sql("select forecasttime, stationid, ff from stg_dwd.forecastdata right join ods_dwd.geo_coordinates_ger using (stationid) where (forecasttime - time_of_prediction) = '12:00:00';",
+    df_prediction_data = pd.read_sql("with helper_table as ( select MAX(time_of_prediction ) as max_time_of_prediction from stg_dwd.forecastdata where 1=1 and stationid = '40754' ) select forecasttime, time_of_prediction, stationid, ff from stg_dwd.forecastdata right join stg_dwd.geo_coordinates using (stationid) where (DATE_PART('hour', forecasttime - time_of_prediction ) + 24 * DATE_PART('day', forecasttime - time_of_prediction) - 1) = 0 union all select forecasttime, time_of_prediction, stationid, ff from stg_dwd.forecastdata right join helper_table on max_time_of_prediction = time_of_prediction right join stg_dwd.geo_coordinates using (stationid);",
             con=dwh_conn, parse_dates=True)
     
     df_prediction_data = pd.pivot_table(df_prediction_data, index='forecasttime', columns='stationid', values='ff')
@@ -65,7 +65,7 @@ def do_ml_magic(project_data, df_prediction_data_UNB, UNB, std, mean):
     
     model = load_model(project_data + '/keras' + UNB + '.h5')
 
-    predictions = model.predict(df_prediction_data_UNB, batch_size=None, verbose=0)
+    predictions = model.predict(df_prediction_data_UNB, batch_size=128, verbose=0, use_multiprocessing=True)
     predictions = pd.DataFrame(predictions)
     
     column_name = 'DE' + UNB + '_FC'
@@ -77,12 +77,12 @@ def do_ml_magic(project_data, df_prediction_data_UNB, UNB, std, mean):
     return predictions
 
 
-def write_to_db(predictions, prediction_data_folder):
-    predictions.to_csv(str(prediction_data_folder) + '/predictions.csv', header=None)
+def write_to_db(df_all_predictions):
+    df_all_predictions.to_csv(project_data + '/predictions/predictions.csv', header=False)
     
     with dwh_conn.cursor() as cur:
         cur.execute(
-            "COPY stg_predictions.predictions_keras_model_v1 FROM '" + prediction_data_folder + "/predictions.csv' DELIMITER ',' NULL AS '-';")
+            "COPY ods_dwd.predictions FROM '" + project_data + "/predictions/predictions.csv' DELIMITER ',' NULL AS '-';")
         dwh_conn.commit()
 
 
@@ -112,7 +112,9 @@ if __name__ == "__main__":
     df_all_predictions['time_of_forecast'] = pd.to_datetime(datetime.today(), format='%Y-%m-%d %H:%M:%S')
     
     print(df_all_predictions)
+    
+    
 
     plot_graph(df_all_predictions)
 
-    #write_to_db(predictions, prediction_data_folder)
+    write_to_db(df_all_predictions)

@@ -13,9 +13,9 @@ cnopts.hostkeys = None
 
 def project_path():
     project_folder = Path(os.path.dirname(os.path.abspath(__file__))).parent.parent
-    project_data = os.path.join(project_folder, 'data', 'dagfws')
+    project_data = os.path.join(project_folder, 'data', 'entsoe', 'agppt')
 
-    return os.path.abspath(project_data)
+    return os.path.abspath(project_data), os.path.abspath(project_folder)
 
 
 dl_path, project_path = project_path()

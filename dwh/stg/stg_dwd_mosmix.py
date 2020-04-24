@@ -164,6 +164,10 @@ def load_data_to_db():
         cur.execute("COPY stg_dwd.geo_coordinates FROM '" + dl_path + "/geo_coordinates.csv' DELIMITER ',' NULL AS '-';")
         dwh_conn.commit()
 
+        # Deletes the data of the last update
+        cur.execute("DELETE from stg_dwd.forecastdata where  DATE_PART('hour', forecasttime - time_of_prediction ) != 1 and (DATE_PART('hour', forecasttime - time_of_prediction ) != 13 or DATE_PART('day', forecasttime - time_of_prediction ) > 1);")
+        dwh_conn.commit()
+
         cur.execute("COPY stg_dwd.forecastdata FROM '" + dl_path + "/ForeCastData.csv' DELIMITER ',' NULL AS '-';")
         dwh_conn.commit()
 
