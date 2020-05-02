@@ -1,0 +1,42 @@
+Luftfeuchte:
+
+https://www.dwd.de/DE/leistungen/met_verfahren_mosmix/faq/relative_feuchte.html
+
+MOSMIX-Element: Relative Feuchte?
+Datum 26.07.2018
+
+Die relative Luftfeuchte wird nicht als Element in MOSMIX abgegeben. Sie kann aber aus anderen Elementen berechnet werden. Hier dient vornehmlich die Magnus-Formel.
+Eine sehr vereinfachte Variante wäre beispielsweise:
+
+Berechnung relative Feuchte (RH) aus Taupunkt (Td) und Temperatur (T2m):    [-> T2m : TTT]
+RH = 100*exp((rh_c2*TD2m/(rh_c3+TD2m))-(rh_c2*T2m/(rh_c3+T2m)))
+
+
+rh_c2=17.5043, rh_c3=241.2
+
+
+
+
+https://de.wikipedia.org/wiki/Luftdichte
+https://de.wikipedia.org/wiki/Windkraftanlage#Energieangebot_und_-ertrag
+
+kinetische Energie -> wv = (rho / 2) * v^3
+
+rho = P  / ( Rf * T)
+
+P = Luftdruck z.B. 101325 Pa
+
+Rs = 287,058 (trockene Luft)
+
+T = Temperatur in Kelvin
+
+Rf = Rs / ( 1 - phi * Pd / P  * ( 1- Rs / Rd))
+
+
+Rd = 461,523
+
+phi = Luftfeuchtigkeit -> RH
+
+Pd = Sättigungsdampfdruck 
+
+Pd = 6,112 hPa * exp (17,62 * t [°C] / 243,12 + t)  [Werte evtl gegen die oben eintauschen!]

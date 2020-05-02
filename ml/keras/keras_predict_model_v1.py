@@ -31,16 +31,16 @@ dwh_conn = settings.dwh_conn
 
 
 def get_statistics(project_data, UNB):
-    mean = pd.read_csv(project_data + '/mean' + UNB + '.csv', header=0, index_col=0, squeeze=True)
+    mean = pd.read_csv(project_data + '/mean' + UNB + '_mse.csv', header=0, index_col=0, squeeze=True)
     # print(mean)
-    std = pd.read_csv(project_data + '/std' + UNB + '.csv', header=0, index_col=0, squeeze=True)
+    std = pd.read_csv(project_data + '/std' + UNB + '_mse.csv', header=0, index_col=0, squeeze=True)
     # print(std)
 
     return mean, std
 
 
 def get_prediction_data(project_data):
-    df_prediction_data = pd.read_sql("with helper_table as ( select MAX(time_of_prediction ) as max_time_of_prediction from stg_dwd.forecastdata where 1=1 and stationid = '40754' ) select forecasttime, time_of_prediction, stationid, ff from stg_dwd.forecastdata right join stg_dwd.geo_coordinates using (stationid) where (DATE_PART('hour', forecasttime - time_of_prediction ) + 24 * DATE_PART('day', forecasttime - time_of_prediction) - 1) = 0 union all select forecasttime, time_of_prediction, stationid, ff from stg_dwd.forecastdata right join helper_table on max_time_of_prediction = time_of_prediction right join stg_dwd.geo_coordinates using (stationid);",
+    df_prediction_data = pd.read_sql("with helper_table as ( select max(time_of_prediction) as max_time_of_prediction from stg_dwd.forecastdata ) select forecasttime, time_of_prediction, stationid, ff from stg_dwd.forecastdata right join ods_dwd.geo_coordinates_ger using (stationid) where (date_part('hour', forecasttime - time_of_prediction ) + 24 * date_part('day', forecasttime - time_of_prediction) - 1) = 0 union all select forecasttime, time_of_prediction, stationid, ff from stg_dwd.forecastdata right join helper_table on max_time_of_prediction = time_of_prediction right join ods_dwd.geo_coordinates_ger using (stationid);",
             con=dwh_conn, parse_dates=True)
     
     df_prediction_data = pd.pivot_table(df_prediction_data, index='forecasttime', columns='stationid', values='ff')
@@ -55,17 +55,17 @@ def get_prediction_data(project_data):
 
 
 def do_ml_magic(project_data, df_prediction_data_UNB, UNB, std, mean):
-    df_prediction_data_UNB = (df_prediction_data_UNB - mean) / std
-
     df_prediction_data_UNB = df_prediction_data_UNB.interpolate(method='linear', axis=0, limit=7, limit_area='inside')
+    
+    df_prediction_data_UNB = (df_prediction_data_UNB - mean) / std
 
     df_prediction_data_UNB = df_prediction_data_UNB.fillna(0)
 
     df_prediction_data_UNB = df_prediction_data_UNB.round(2)
     
-    model = load_model(project_data + '/keras' + UNB + '.h5')
+    model = load_model(project_data + '/keras' + UNB + '_mse.h5')
 
-    predictions = model.predict(df_prediction_data_UNB, batch_size=128, verbose=0, use_multiprocessing=True)
+    predictions = model.predict(df_prediction_data_UNB, batch_size=256, verbose=0, use_multiprocessing=True)
     predictions = pd.DataFrame(predictions)
     
     column_name = 'DE' + UNB + '_FC'
@@ -78,11 +78,11 @@ def do_ml_magic(project_data, df_prediction_data_UNB, UNB, std, mean):
 
 
 def write_to_db(df_all_predictions):
-    df_all_predictions.to_csv(project_data + '/predictions/predictions.csv', header=False)
+    df_all_predictions.to_csv(project_data + '/predictions/predictions_mse.csv', header=False)
     
     with dwh_conn.cursor() as cur:
         cur.execute(
-            "COPY ods_dwd.predictions FROM '" + project_data + "/predictions/predictions.csv' DELIMITER ',' NULL AS '-';")
+            "COPY ods_dwd.predictions_mse FROM '" + project_data + "/predictions/predictions_mse.csv' DELIMITER ',' NULL AS '-';")
         dwh_conn.commit()
 
 

@@ -46,14 +46,14 @@ def generate_training_data():
     Scipy Tuts:     https://docs.scipy.org/doc/scipy/reference/tutorial/interpolate.html
     '''
     
-    df_trainingsdata = df_trainingsdata.interpolate(method='linear', axis=0, limit=7, limit_area='inside')
+    df_trainingsdata = df_trainingsdata.interpolate(method='linear', axis=0, limit=4, limit_area='inside')
 
     df_trainingsdata = df_trainingsdata.dropna(thresh=3000, axis=0)
     df_trainingsdata = df_trainingsdata.round(2)
 
     print(df_trainingsdata)
     
-    df_trainingsdata.to_csv(project_data + '/trainingsdata_pow.csv')
+    df_trainingsdata.to_csv(project_data + '/trainingsdata_1h.csv')
 
 
 if __name__ == "__main__":
