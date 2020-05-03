@@ -40,3 +40,31 @@ phi = Luftfeuchtigkeit -> RH
 Pd = Sättigungsdampfdruck 
 
 Pd = 6,112 hPa * exp (17,62 * t [°C] / 243,12 + t)  [Werte evtl gegen die oben eintauschen!]
+
+
+
+Windrichtung 
+
+-> sinus + cosinus im Einheitskreis
+
+
+
+SQL:
+
+select
+	forecast_timestamp,
+	time_of_prediction,
+	stationid,
+	pppp,
+	ttt,
+	td,	
+	ff,
+	(6.112 * exp( 17.62 * (TTT- 273.15) / ( 243.12 + (TTT- 273.15) ) )) as pd,
+	exp((17.5043 * td)/(241.2 + td) - (17.5043 * ttt)/(241.2 + ttt)) as phi,
+	( 287.058 / (1 - exp((17.5043 * td)/(241.2 + td) - (17.5043 * ttt)/(241.2 + ttt)) * ((6.112 * exp( 17.62 * (TTT- 273.15) / ( 243.12 + (TTT- 273.15) ) )) / pppp) * (1 - (287.058/461.523))  )  ) as rf,
+	(pppp / (ttt * ( 287.058 / (1 - exp((17.5043 * td)/(241.2 + td) - (17.5043 * ttt)/(241.2 + ttt)) * ((6.112 * exp( 17.62 * (TTT- 273.15) / ( 243.12 + (TTT- 273.15) ) )) / pppp) * (1 - (287.058/461.523))  )  )) ) as rho,
+	((pppp / (ttt * ( 287.058 / (1 - exp((17.5043 * td)/(241.2 + td) - (17.5043 * ttt)/(241.2 + ttt)) * ((6.112 * exp( 17.62 * (TTT- 273.15) / ( 243.12 + (TTT- 273.15) ) )) / pppp) * (1 - (287.058/461.523))  )  )) )/ 2)*ff*ff*ff as vw,
+	sin(dd) as sinus,
+	cos(dd) as cosinus
+from
+	stg_dwd.mosmix;

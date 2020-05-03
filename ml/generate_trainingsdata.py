@@ -21,7 +21,6 @@ def generate_training_data():
     df_entsoe_agppt.index.name = 'timestamp'
     
     #print(df_entsoe_agppt)
-
     #df_entsoe_dagfws = pd.read_csv(project_data + '/df_entsoe_dagfws.csv', parse_dates=True)
     #df_entsoe_dagfws = df_entsoe_dagfws.set_index(['datetime'])
     #df_entsoe_dagfws.index.name = 'timestamp'
@@ -53,7 +52,7 @@ def generate_training_data():
 
     print(df_trainingsdata)
     
-    df_trainingsdata.to_csv(project_data + '/trainingsdata_1h.csv')
+    df_trainingsdata.to_csv(project_data + '/trainingsdata.csv')
 
 
 if __name__ == "__main__":
