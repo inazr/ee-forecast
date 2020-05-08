@@ -31,12 +31,10 @@ dwh_conn = settings.dwh_conn
 
 def get_filename(i):
     now = datetime.today() + timedelta(hours=-i)
-    filename_kmz = 'MOSMIX_S_' + now.strftime('%Y') + now.strftime('%m') + now.strftime('%d') + now.strftime(
-        '%H') + '_240.kmz'
-    current_timestamp = now.strftime('%Y') + "-" + now.strftime('%m') + "-" + now.strftime('%d') + " " + now.strftime(
-        '%H')+ ":00:00"
+    filename_kmz = 'MOSMIX_S_' + now.strftime('%Y') + now.strftime('%m') + now.strftime('%d') + now.strftime('%H') + '_240.kmz'
+    current_timestamp = now.strftime('%Y') + "-" + now.strftime('%m') + "-" + now.strftime('%d') + " " + now.strftime('%H')+ ":00:00"
 
-    return filename_kmz, current_timestamp, now
+    return filename_kmz, current_timestamp
 
 
 def check_filename_exist(filename_kmz):
@@ -71,7 +69,9 @@ def extract_geo_data(filename_kml):
         "dwd": "https://opendata.dwd.de/weather/lib/pointforecast_dwd_extension_V1_0.xsd",
         "kml": "http://www.opengis.net/kml/2.2"}))
 
-    df_GeoID = pd.concat([s_StationIDs, s_GeoLocations.str.split(",", expand=True)], axis=1)
+    df_GeoID = pd.concat([s_StationIDs, s_GeoLocations.str.split(",", expand=True)],
+                         axis=1)
+    
     df_GeoID.columns = ['StationID', 'lat', 'long', 'height']
 
     df_GeoID.to_csv(dl_path + '/' + 'geo_coordinates.csv', index=False, header=False)
@@ -79,8 +79,9 @@ def extract_geo_data(filename_kml):
     return s_StationIDs
 
 
-def extract_weather_data(filename_kml, s_StationIDs, now):
-    root = etree.parse(dl_path + '/' + filename_kml, parser=XMLParser(huge_tree=True))
+def extract_weather_data(filename_kml, s_StationIDs):
+    root = etree.parse(dl_path + '/' + filename_kml,
+                       parser=XMLParser(huge_tree=True))
 
     df_ForeCastTime = pd.DataFrame(
         root.xpath(
@@ -88,97 +89,76 @@ def extract_weather_data(filename_kml, s_StationIDs, now):
             namespaces={"dwd": "https://opendata.dwd.de/weather/lib/pointforecast_dwd_extension_V1_0.xsd",
                         "kml": "http://www.opengis.net/kml/2.2"}))
 
-    df_ForeCastTime.rename({0: 'ForeCastTime'}, axis='columns', inplace=True)
+    df_ForeCastTime.rename({0: 'ForeCastTime'},
+                           axis='columns',
+                           inplace=True)
+    
+    df_ForeCastTime['ForeCastTime'] = pd.to_datetime(df_ForeCastTime['ForeCastTime'].astype(str),
+                                                     format='%Y-%m-%d %H:%M:%S')
 
-
-    df_ForeCastTime['ForeCastTime'] = pd.to_datetime(df_ForeCastTime['ForeCastTime'].astype(str), format='%Y-%m-%d %H:%M:%S')
-
+    df_ForeCastTime['TimeOfForeCast'] = pd.to_datetime(filename_kml[9:13] + '-' + filename_kml[13:15] + '-' + filename_kml[15:17] + ' ' + filename_kml[17:19] + ':00:00',
+                                                       format='%Y-%m-%d %H:%M:%S')
+    
     '''
-    Extracts a dataframe to predict stuff
+    df_ForeCastTime ->
+    
+                             ForeCastTime      TimeOfForeCast
+        0   2020-05-06 11:00:00+00:00 2020-05-06 10:00:00
+        1   2020-05-06 12:00:00+00:00 2020-05-06 10:00:00
+        2   2020-05-06 13:00:00+00:00 2020-05-06 10:00:00
+        3   2020-05-06 14:00:00+00:00 2020-05-06 10:00:00
+        4   2020-05-06 15:00:00+00:00 2020-05-06 10:00:00
+        ..                        ...                 ...
+        235 2020-05-16 06:00:00+00:00 2020-05-06 10:00:00
+        236 2020-05-16 07:00:00+00:00 2020-05-06 10:00:00
+        237 2020-05-16 08:00:00+00:00 2020-05-06 10:00:00
+        238 2020-05-16 09:00:00+00:00 2020-05-06 10:00:00
+        239 2020-05-16 10:00:00+00:00 2020-05-06 10:00:00
+    
     '''
-    df_ForeCastTime_Predictor = df_ForeCastTime
-
-    df_ForeCastTime['PredictionDate'] = pd.to_datetime(filename_kml[9:13] + '-' + filename_kml[13:15] + '-' + filename_kml[15:17] + ' ' + filename_kml[17:19] + ':00:00', format='%Y-%m-%d %H:%M:%S')
-
-    df_ForeCastTime = df_ForeCastTime.iloc[:1, :]
-
+    
     df_ForeCastData = root.xpath("//kml:Document/kml:Placemark/kml:ExtendedData/dwd:Forecast/dwd:value/text()",
                                  namespaces={
                                      "dwd": "https://opendata.dwd.de/weather/lib/pointforecast_dwd_extension_V1_0.xsd",
                                      "kml": "http://www.opengis.net/kml/2.2"})
 
     df_ForeCastData = pd.DataFrame(pd.Series(df_ForeCastData).str.split(expand=True))
-
-    '''
-    Extracts a dataframe to predict stuff
-    '''
-    df_ForeCastData_Predictor = df_ForeCastData
-
-    df_ForeCastData = df_ForeCastData.iloc[:, :1]
-
-    df_piv = pd.DataFrame()
-
+    
     for i in range(0, len(df_ForeCastData), 40):
-        df_piv = df_ForeCastData.iloc[i:i + 40].T
-        df_piv.columns = [str(x) for x in range(0, 40)]
-        df_ForeCastTime['StationID'] = str(s_StationIDs[i / 40])
-        df_piv = pd.concat([df_ForeCastTime, df_piv], axis=1)
-
-        with open(dl_path + '/' + 'temp_mosmix.csv', 'a') as f:
-            df_piv.to_csv(f, header=False, index=False)
-
-    df_ForeCastData_Predictor = df_ForeCastData_Predictor[
-        df_ForeCastData_Predictor.index % 40 == 7]  # Windspeed is the 7th datacolumn
-
-    df_ForeCastData_Predictor = df_ForeCastData_Predictor.reset_index()
-
-    df_ForeCastData_Predictor = df_ForeCastData_Predictor.iloc[:, 1:]
-
-    df_ForeCastData_Predictor = pd.concat([s_StationIDs, df_ForeCastData_Predictor], axis=1)
-
-    df_ForeCastData_Predictor = df_ForeCastData_Predictor.T
-    df_ForeCastData_Predictor.columns = df_ForeCastData_Predictor.iloc[0]
-
-    df_ForeCastData_Predictor = df_ForeCastData_Predictor[1:]
-
-    df_ForeCastData_Predictor['ForeCastTime'] = df_ForeCastTime_Predictor['ForeCastTime']
-
-    df_ForeCastData_Predictor = df_ForeCastData_Predictor.melt(id_vars='ForeCastTime', var_name='StationID',
-                                                               value_name='FF')
-
-    df_ForeCastData_Predictor['Time_of_Prediction'] = str(
-        filename_kml[9:13] + '-' + filename_kml[13:15] + '-' + filename_kml[15:17] + ' ' + filename_kml[
-                                                                                           17:19] + ':00:00')
-
-    df_ForeCastData_Predictor = df_ForeCastData_Predictor[['ForeCastTime', 'Time_of_Prediction', 'StationID', 'FF']]
-
-    df_ForeCastData_Predictor.to_csv(dl_path + '/' + 'ForeCastData.csv', header=False, index=False)
-
+        df_piv_temp = df_ForeCastTime
+        df_piv_temp['StationID'] = str(s_StationIDs[i / 40])
+        
+        df_piv_temp = pd.concat([df_piv_temp, df_ForeCastData.iloc[i:i + 40].T],
+                                axis=1)
+    
+        with open(dl_path + '/' + 'df_MOSMIX.csv', 'a') as f:
+            df_piv_temp.to_csv(f, header=False, index=False)
+        
 
 def load_data_to_db():
     with dwh_conn.cursor() as cur:
-        cur.execute("COPY stg_dwd.mosmix FROM '" + dl_path + "/temp_mosmix.csv' DELIMITER ',' NULL AS '-';")
+        cur.execute("delete from stg_dwd.mosmix where DATE_PART('hour', forecast_timestamp - time_of_prediction) != 1 and (DATE_PART('hour', forecast_timestamp - time_of_prediction) != 13 or DATE_PART('day', forecast_timestamp - time_of_prediction) > 1);")
         dwh_conn.commit()
-
+        
+        cur.execute("COPY stg_dwd.mosmix FROM '" + dl_path + "/df_MOSMIX.csv' DELIMITER ',' NULL AS '-';")
+        dwh_conn.commit()
+        
         cur.execute("TRUNCATE TABLE stg_dwd.geo_coordinates;")
         cur.execute("COPY stg_dwd.geo_coordinates FROM '" + dl_path + "/geo_coordinates.csv' DELIMITER ',' NULL AS '-';")
         dwh_conn.commit()
 
-        cur.execute("COPY stg_dwd.forecastdata FROM '" + dl_path + "/ForeCastData.csv' DELIMITER ',' NULL AS '-';")
-        dwh_conn.commit()
 
-def clean_up(filename_kml):
-    os.remove(dl_path + '/' + 'temp_mosmix.csv')
+def clean_up(filename_kml, filename_kmz):
+    os.remove(dl_path + '/' + 'df_MOSMIX.csv')
     os.remove(dl_path + '/' + 'geo_coordinates.csv')
     os.remove(dl_path + '/' + filename_kml)
     os.remove(dl_path + '/' + filename_kmz)
-    os.remove(dl_path + '/' + 'ForeCastData.csv')
 
 
 def check_if_time_of_prediction_on_server(current_timestamp):
-    time = pd.read_sql(
-        "select time_of_prediction from stg_dwd.mosmix where time_of_prediction = '" + current_timestamp + "';",
-        con=dwh_conn, parse_dates=True)
+    time = pd.read_sql("select time_of_prediction from stg_dwd.mosmix where time_of_prediction = '" + current_timestamp + "';",
+                       con=dwh_conn,
+                       parse_dates=True)
 
     if time.empty:
         check = True
@@ -189,22 +169,22 @@ def check_if_time_of_prediction_on_server(current_timestamp):
 
 
 if __name__ == "__main__":
-    
-    for i in range(30, 35):
-        filename_kmz, current_timestamp, now = get_filename(i)
-        
+
+    for i in range(5, 7):
+        filename_kmz, current_timestamp = get_filename(i)
+
         check = check_if_time_of_prediction_on_server(current_timestamp)
         if check:
             check_filename_exist(filename_kmz)
             unzip_file(filename_kmz)
             filename_kml = filename_kmz[:-1] + 'l'
             s_StationIDs = extract_geo_data(filename_kml)
-            extract_weather_data(filename_kml, s_StationIDs, now)
+            extract_weather_data(filename_kml, s_StationIDs)
             load_data_to_db()
-            clean_up(filename_kml)
-        
+            clean_up(filename_kml, filename_kmz)
+
         else:
-            print("skipping..." + current_timestamp)
+            print("skipping...")
 
 
 

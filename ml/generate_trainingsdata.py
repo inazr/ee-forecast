@@ -5,14 +5,12 @@ pd.options.display.max_rows = 16
 pd.options.display.max_columns = 16
 pd.set_option('display.width', 1750)
 
+
 def project_path():
     project_folder = Path(os.path.dirname(os.path.abspath(__file__))).parent
     project_data = os.path.join(project_folder, 'data', 'ml')
 
     return os.path.abspath(project_data)
-
-
-project_data = project_path()
 
 
 def generate_training_data():
@@ -35,6 +33,7 @@ def generate_training_data():
 
     df_trainingsdata = df_entsoe_agppt.join(other=df_mosmix)
 
+    # Not enough memory
     del df_entsoe_agppt
     del df_mosmix
 
@@ -50,10 +49,16 @@ def generate_training_data():
     df_trainingsdata = df_trainingsdata.dropna(thresh=3000, axis=0)
     df_trainingsdata = df_trainingsdata.round(2)
 
-    print(df_trainingsdata)
-    
+    # Delete the last day as often there is at least one UNB with no data...
+    df_trainingsdata = df_trainingsdata.iloc[:-96, :]
+
     df_trainingsdata.to_csv(project_data + '/trainingsdata.csv')
+
+    print(df_trainingsdata)
+    print("Done...")
 
 
 if __name__ == "__main__":
+    project_data = project_path()
+
     generate_training_data()
