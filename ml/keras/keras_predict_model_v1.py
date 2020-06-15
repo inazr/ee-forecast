@@ -31,49 +31,60 @@ dwh_conn = settings.dwh_conn
 
 
 def get_statistics(project_data, UNB):
-    mean = pd.read_csv(project_data + '/mean' + UNB + '_mse.csv', header=0, index_col=0, squeeze=True)
+    mean = pd.read_csv(project_data + '/mean_' + UNB + '_mse_vw.csv', header=0, index_col=0, squeeze=True)
     # print(mean)
-    std = pd.read_csv(project_data + '/std' + UNB + '_mse.csv', header=0, index_col=0, squeeze=True)
+    std = pd.read_csv(project_data + '/std_' + UNB + '_mse_vw.csv', header=0, index_col=0, squeeze=True)
     # print(std)
 
     return mean, std
 
 
 def get_prediction_data(project_data):
-    df_prediction_data = pd.read_sql("with helper_table as ( select max(time_of_prediction) as max_time_of_prediction from stg_dwd.forecastdata ) select forecasttime, time_of_prediction, stationid, ff from stg_dwd.forecastdata right join ods_dwd.geo_coordinates_ger using (stationid) where (date_part('hour', forecasttime - time_of_prediction ) + 24 * date_part('day', forecasttime - time_of_prediction) - 1) = 0 union all select forecasttime, time_of_prediction, stationid, ff from stg_dwd.forecastdata right join helper_table on max_time_of_prediction = time_of_prediction right join ods_dwd.geo_coordinates_ger using (stationid);",
-            con=dwh_conn, parse_dates=True)
+    df_prediction_data = pd.read_sql("with helper_table as ( select max(time_of_prediction) as max_time_of_prediction from stg_dwd.mosmix) select forecast_timestamp, time_of_prediction, stationid, case when ff > 3 and ff < 32 then ((pppp /(ttt*(287.058 /(1-exp((17.5043 * td)/(241.2 + td)-(17.5043 * ttt)/(241.2 + ttt))*((6.112 * exp(17.62 *(ttt-273.15)/(243.12 +(ttt-273.15))))/ pppp)*(1-(287.058 / 461.523))))))/ 2)* ff*ff*ff else 0 end as vw from stg_dwd.mosmix right join ods_dwd.geo_coordinates_ger using (stationid) where (date_part('hour', forecast_timestamp - time_of_prediction ) + 24 * date_part('day', forecast_timestamp - time_of_prediction) - 1) = 0 and forecast_timestamp > '2020-05-10' union all select forecast_timestamp, time_of_prediction, stationid, case when ff > 3 and ff < 32 then ((pppp /(ttt*(287.058 /(1-exp((17.5043 * td)/(241.2 + td)-(17.5043 * ttt)/(241.2 + ttt))*((6.112 * exp(17.62 *(ttt-273.15)/(243.12 +(ttt-273.15))))/ pppp)*(1-(287.058 / 461.523))))))/ 2)* ff*ff*ff else 0 end as vw from stg_dwd.mosmix right join helper_table on max_time_of_prediction = time_of_prediction right join ods_dwd.geo_coordinates_ger using (stationid);",
+            con=dwh_conn,
+            parse_dates=True)
+    print(df_prediction_data)
     
-    df_prediction_data = pd.pivot_table(df_prediction_data, index='forecasttime', columns='stationid', values='ff')
+    df_prediction_data = pd.pivot_table(df_prediction_data,
+                                        index='forecast_timestamp',
+                                        columns='stationid',
+                                        values='vw',
+                                        dropna=False)
+    print(df_prediction_data)
 
-    df_prediction_data = df_prediction_data.reindex(sorted(df_prediction_data.columns), axis=1)
-
+    #df_prediction_data = df_prediction_data.reindex(sorted(df_prediction_data.columns), axis=1)
+    
     df_prediction_data = df_prediction_data.resample('15Min').first()
 
-    df_prediction_data.columns = 'ff_' + df_prediction_data.columns.astype(str)
+    df_prediction_data.columns = df_prediction_data.columns.astype(str) + '_vw'
 
+    print(df_prediction_data)
+    
     return df_prediction_data
 
 
 def do_ml_magic(project_data, df_prediction_data_UNB, UNB, std, mean):
     df_prediction_data_UNB = df_prediction_data_UNB.interpolate(method='linear', axis=0, limit=7, limit_area='inside')
+
+    df_prediction_data_UNB = df_prediction_data_UNB.fillna(0)
     
     df_prediction_data_UNB = (df_prediction_data_UNB - mean) / std
 
-    df_prediction_data_UNB = df_prediction_data_UNB.fillna(0)
-
     df_prediction_data_UNB = df_prediction_data_UNB.round(2)
-    
-    model = load_model(project_data + '/keras' + UNB + '_mse.h5')
+    df_prediction_data_UNB = df_prediction_data_UNB.fillna(df_prediction_data_UNB.min().min())
 
-    predictions = model.predict(df_prediction_data_UNB, batch_size=256, verbose=0, use_multiprocessing=True)
+    model = load_model(project_data + '/keras_' + UNB + '_mse_vw.h5')
+
+    predictions = model.predict(df_prediction_data_UNB, batch_size=1024, verbose=0, use_multiprocessing=True)
+    print(predictions)
     predictions = pd.DataFrame(predictions)
-    
-    column_name = 'DE' + UNB + '_FC'
-    
+    print(predictions)
+    column_name = 'DE_' + UNB + '_FC'
+    print(predictions)
     predictions.columns = [column_name]
-    
+    print(predictions)
     predictions.index = df_prediction_data_UNB.index
-    
+    print(predictions)
     return predictions
 
 
@@ -97,10 +108,10 @@ def plot_graph(df_all_predictions):
 if __name__ == "__main__":
     df_all_predictions = pd.DataFrame()
     
-    UNB_list = ['_TEN',
-                '_AMP',
-                '_TBW',
-                '_50HzT']
+    UNB_list = ['TEN',
+                'AMP',
+                'TBW',
+                '50HzT']
 
     df_prediction_data = get_prediction_data(project_data)
     
@@ -115,6 +126,6 @@ if __name__ == "__main__":
     
     
 
-    plot_graph(df_all_predictions)
+    #plot_graph(df_all_predictions)
 
     write_to_db(df_all_predictions)

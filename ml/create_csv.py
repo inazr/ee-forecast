@@ -26,38 +26,30 @@ def query_mosmix_db():
     Return valid stationids
     '''
     
-    df_mosmix_raw_vw = pd.read_sql("select forecast_timestamp, stationid, case when ff > 3 and ff < 32 then ((pppp/(ttt*(287.058/(1-exp((17.5043*td)/(241.2+td)-(17.5043*ttt)/(241.2+ttt))*((6.112*exp(17.62*(ttt-273.15)/(243.12+(ttt-273.15))))/pppp)*(1-(287.058/461.523))))))/2)*ff*ff*ff else 0 end as vw from stg_dwd.mosmix right join ods_dwd.geo_coordinates_ger using (stationid);", con=dwh_conn, parse_dates=True)
-
-    df_mosmix_raw_vw['stationid'] = 'vw_' + df_mosmix_raw_vw['stationid'].astype(str)
-    df_mosmix_raw_vw['forecast_timestamp'] = pd.to_datetime(df_mosmix_raw_vw['forecast_timestamp'])
-    df_mosmix_pivot_vw = df_mosmix_raw_vw.pivot(index='forecast_timestamp', columns='stationid', values=['vw'])
-
-    df_mosmix_pivot = df_mosmix_pivot_vw
-    df_mosmix_pivot.index = df_mosmix_pivot.index.shift(periods=-1, freq='H')  # Done to fix Weather prev hour vs. energy next hour
+    # Kinetische Energie: vw
+    df_mosmix_raw = pd.read_sql("select forecast_timestamp, stationid, coalesce(case when ff > 3 and ff < 32 then ((pppp /(ttt*(287.058 /(1-exp((17.5043 * td)/(241.2 + td)-(17.5043 * ttt)/(241.2 + ttt))*((6.112 * exp(17.62 *(ttt-273.15)/(243.12 +(ttt-273.15))))/ pppp)*(1-(287.058 / 461.523))))))/ 2)* ff*ff*ff else 0 end, 0) as vw from stg_dwd.mosmix right join ods_dwd.geo_coordinates_ger using (stationid) where (date_part('hour', forecast_timestamp - time_of_prediction ) + 24 * date_part('day', forecast_timestamp - time_of_prediction)) = 1;", con=dwh_conn, parse_dates=True)
+    df_mosmix_raw['stationid'] = df_mosmix_raw['stationid'].astype(str) + '_vw'
+    df_mosmix_raw['forecast_timestamp'] = pd.to_datetime(df_mosmix_raw['forecast_timestamp'])
     
+    df_mosmix_pivot_vw = df_mosmix_raw.pivot(index='forecast_timestamp', columns='stationid', values=['vw'])
     
-    '''
-    df_mosmix_raw_vw = pd.read_sql("select forecast_timestamp, stationid, case when ff > 3 and ff < 32 then ((pppp/(ttt*(287.058/(1-exp((17.5043*td)/(241.2+td)-(17.5043*ttt)/(241.2+ttt))*((6.112*exp(17.62*(ttt-273.15)/(243.12+(ttt-273.15))))/pppp)*(1-(287.058/461.523))))))/2)*ff*ff*ff else 0 end as vw from stg_dwd.mosmix right join ods_dwd.geo_coordinates_ger using (stationid);", con=dwh_conn, parse_dates=True)
-    df_mosmix_raw_vw['stationid'] = 'vw_' + df_mosmix_raw_vw['stationid'].astype(str)
-    df_mosmix_raw_vw['forecast_timestamp'] = pd.to_datetime(df_mosmix_raw_vw['forecast_timestamp'])
-    df_mosmix_pivot_vw = df_mosmix_raw_vw.pivot(index='forecast_timestamp', columns='stationid', values=['vw'])
-
-    df_mosmix_raw_sin = pd.read_sql("select forecast_timestamp, stationid, sin(dd) as sinus from stg_dwd.mosmix right join ods_dwd.geo_coordinates_ger using (stationid)", con=dwh_conn, parse_dates=True)
-    df_mosmix_raw_sin['stationid'] = 'sin_' + df_mosmix_raw_sin['stationid'].astype(str)
-    df_mosmix_raw_sin['forecast_timestamp'] = pd.to_datetime(df_mosmix_raw_sin['forecast_timestamp'])
-    df_mosmix_pivot_sin = df_mosmix_raw_sin.pivot(index='forecast_timestamp', columns='stationid', values=['sinus'])
-
-    df_mosmix_raw_cos = pd.read_sql("select forecast_timestamp, stationid, cos(dd) as cosinus from stg_dwd.mosmix right join ods_dwd.geo_coordinates_ger using (stationid)", con=dwh_conn, parse_dates=True)
-    df_mosmix_raw_cos['stationid'] = 'cos_' + df_mosmix_raw_cos['stationid'].astype(str)
-    df_mosmix_raw_cos['forecast_timestamp'] = pd.to_datetime(df_mosmix_raw_cos['forecast_timestamp'])
-    df_mosmix_pivot_cos = df_mosmix_raw_cos.pivot(index='forecast_timestamp', columns='stationid', values=['cosinus'])
-
-    df_mosmix_pivot = pd.concat([df_mosmix_pivot_vw, df_mosmix_pivot_sin, df_mosmix_pivot_cos], axis=1, join='inner')
+    print(df_mosmix_pivot_vw)
     
-    '''
+    # Windrichtung: dd
+    df_mosmix_raw = pd.read_sql("select forecast_timestamp, stationid, dd from stg_dwd.mosmix right join ods_dwd.geo_coordinates_ger using (stationid) where (date_part('hour', forecast_timestamp - time_of_prediction ) + 24 * date_part('day', forecast_timestamp - time_of_prediction)) = 1;", con=dwh_conn, parse_dates=True)
+    df_mosmix_raw['stationid'] = df_mosmix_raw['stationid'].astype(str) + '_dd'
+    df_mosmix_raw['forecast_timestamp'] = pd.to_datetime(df_mosmix_raw['forecast_timestamp'])
+    
+    df_mosmix_pivot_dd = df_mosmix_raw.pivot(index='forecast_timestamp', columns='stationid', values=['dd'])
+    print(df_mosmix_pivot_dd)
 
-    df_mosmix_pivot.index = df_mosmix_pivot.index.shift(periods=-1, freq='H') # -> DWD Prev, UNB Next
-    df_mosmix_pivot.to_csv(project_data + '/df_mosmix.csv')
+    df_mosmix_pivot = pd.concat([df_mosmix_pivot_vw, df_mosmix_pivot_dd], axis=1)
+
+    df_mosmix_pivot_dd.index = df_mosmix_pivot_dd.index.shift(periods=-1, freq='H')  # Done to fix Weather prev hour vs. energy next hour
+    df_mosmix_pivot_vw.index = df_mosmix_pivot_vw.index.shift(periods=-1, freq='H')  # Done to fix Weather prev hour vs. energy next hour
+    
+    df_mosmix_pivot_dd.to_csv(project_data + '/df_mosmix_dd.csv')
+    df_mosmix_pivot_vw.to_csv(project_data + '/df_mosmix_vw.csv')
     
     print("MOSMIX done")
     

@@ -142,7 +142,7 @@ def extract_weather_data(filename_kml, s_StationIDs):
 def load_data_to_db():
     with dwh_conn.cursor() as cur:
         cur.execute(
-            "delete from stg_dwd.mosmix where DATE_PART('hour', forecast_timestamp - time_of_prediction) != 1 and (DATE_PART('hour', forecast_timestamp - time_of_prediction) != 13 or DATE_PART('day', forecast_timestamp - time_of_prediction) > 1);")
+            "delete from stg_dwd.mosmix where (date_part('hour', forecast_timestamp - time_of_prediction) != 1 or date_part('day', forecast_timestamp - time_of_prediction) > 0);")
         dwh_conn.commit()
         
         cur.execute("COPY stg_dwd.mosmix FROM '" + dl_path + "/df_MOSMIX.csv' DELIMITER ',' NULL AS '-';")
